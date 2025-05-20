@@ -68,15 +68,15 @@ A scalable FastAPI project template with SQLAlchemy, PostgreSQL, and best practi
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/fastapi-project.git
-cd fastapi-project
+git clone https://github.com/kumarsonu676/python-fastapi-starter-api-project
+cd python-fastapi-starter-api-project
 ```
 
 2. Create and activate a virtual environment:
 
 ```bash
 py -m venv venv
-venv\\Scripts\\activate #venv\scripts\activate for windows
+venv\Scripts\activate #venv\scripts\activate for windows
 ```
 
 3. Install dependencies:
@@ -119,8 +119,8 @@ py -m main
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/fastapi-project.git
-cd fastapi-project
+git clone https://github.com/kumarsonu676/python-fastapi-starter-api-project
+cd python-fastapi-starter-api-project
 ```
 
 2. Create a `.env` file based on `.env.example`:
