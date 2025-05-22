@@ -77,7 +77,7 @@ async def login_user(
 
 
 @router.post("/token")
-async def login_user(
+async def generate_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     user_service: UserService = Depends(get_user_service)
 ):
