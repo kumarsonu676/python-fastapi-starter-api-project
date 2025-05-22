@@ -23,7 +23,7 @@ async def get_current_user(
 ) -> CustomResponse[UserResponse]:
 
     return create_response(
-        data=current_user
+        data=UserResponse.from_orm(current_user)
     )
 
 @router.get(
