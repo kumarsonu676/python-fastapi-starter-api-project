@@ -25,7 +25,7 @@ class ClientIdMiddleware(BaseHTTPMiddleware):
         client_id = request.headers.get("X-Client-ID")
 
         # Skip client ID check for specific paths if needed
-        excluded_paths: list[str] = ["/", "/favicon.ico", "/api/v1/docs", "/api/v1/redoc", "/api/v1/openapi.json", "/api/v1/health", "/api/v1/health/"]
+        excluded_paths: list[str] = ["/", "/favicon.ico", "/api/v1/docs", "/api/v1/redoc", "/api/v1/openapi.json", "/api/v1/health", "/api/v1/health/", "/api/v1/auth/token", "/api/v1/auth/token/"]
         if request.url.path in excluded_paths:
             return await call_next(request)
         

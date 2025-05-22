@@ -1,4 +1,6 @@
+from typing import Annotated
 from fastapi import APIRouter, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.security import create_access_token, verify_password
 from app.dependencies.services import get_user_service
@@ -72,3 +74,27 @@ async def login_user(
         message="User logged in successfully",
         status_code=status.HTTP_200_OK
     )
+
+
+@router.post("/token")
+async def login_user(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    user_service: UserService = Depends(get_user_service)
+):
+    user = await user_service.get_by_email(form_data.username)
+
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise UnauthorizedError(
+            error_code="INVALID_CREDENTIALS",
+            detail="Invalid email or password"
+        )
+    
+    user_dict = {
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name
+    }
+
+    token = create_access_token(data=user_dict)
+
+    return {"access_token": token, "token_type": "bearer"}

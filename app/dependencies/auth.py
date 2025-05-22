@@ -9,7 +9,7 @@ from app.exceptions.http_exceptions import BadRequestError, UnauthorizedError
 from app.schemas.user import UserResponse
 from app.services.user_service import UserService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/token")
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),    
