@@ -41,6 +41,9 @@ async def get_current_user(
             error_code="INVALID_CREDENTIALS",
             detail="Could not validate credentials"
         )
+
+    #delete hashed_password
+    del user.hashed_password
     
     return user
 
@@ -60,9 +63,7 @@ async def get_current_active_user(current_user: UserResponse = Depends(get_curre
             error_code="INACTIVE_USER",
             detail="Inactive user"
         )
-    
-    #delete hashed_password
-    del current_user.hashed_password
+   
     
     return current_user
 
@@ -95,7 +96,7 @@ def authorize(allowed_roles: Optional[List[str]] = None):
     Dependency for role-based access control.
     If no roles are provided, any authenticated active user is allowed.
     """
-    def role_checker(current_user: UserResponse = Depends(get_current_active_user)):
+    async def role_checker(current_user: UserResponse = Depends(get_current_active_user)):
         if allowed_roles:
             user_role = current_user.role
             if user_role not in allowed_roles:
