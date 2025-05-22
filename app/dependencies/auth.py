@@ -41,9 +41,6 @@ async def get_current_user(
             error_code="INVALID_CREDENTIALS",
             detail="Could not validate credentials"
         )
-
-    #set hashed_password to None to avoid exposing it 
-    user.hashed_password = None
     
     return user
 
