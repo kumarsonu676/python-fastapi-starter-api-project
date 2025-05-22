@@ -42,8 +42,8 @@ async def get_current_user(
             detail="Could not validate credentials"
         )
 
-    #delete hashed_password
-    del user.hashed_password
+    #set hashed_password to None to avoid exposing it 
+    user.hashed_password = None
     
     return user
 
