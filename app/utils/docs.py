@@ -50,6 +50,7 @@ def setup_swagger_documentation(app: FastAPI, api_prefix: str) -> None:
             title=f"{app.title} - Swagger UI",
             swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
             swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
+            swagger_favicon_url="/favicon.ico",
         )
     
     @app.get(f"{api_prefix}/redoc", include_in_schema=False)
@@ -59,4 +60,5 @@ def setup_swagger_documentation(app: FastAPI, api_prefix: str) -> None:
             openapi_url=f"{api_prefix}/openapi.json",
             title=f"{app.title} - ReDoc",
             redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js",
+            redoc_favicon_url="/favicon.ico",
         )

@@ -29,6 +29,10 @@ class ClientIdMiddleware(BaseHTTPMiddleware):
         if request.url.path in excluded_paths:
             return await call_next(request)
         
+        # if path starts with /images, /css, /js, /favicon.ico, skip client ID check
+        if request.url.path.startswith("/images") or request.url.path.startswith("/css") or request.url.path.startswith("/js") or request.url.path.startswith("/favicon.ico"):
+            return await call_next(request)
+        
         # Validate client ID
         if not client_id:
             return create_response(
