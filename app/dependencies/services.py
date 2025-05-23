@@ -8,4 +8,4 @@ from app.services.user_service import UserService
 
 
 def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
-    return UserService(UserRepository(db))
+    return UserService(db, UserRepository(db))

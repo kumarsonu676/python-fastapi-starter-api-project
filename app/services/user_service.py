@@ -4,11 +4,13 @@ from app.core.security import get_password_hash
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.user import UserCreate, UserUpdate
+from sqlalchemy.ext.asyncio import AsyncSession
 
 class UserService:    
 
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, db: AsyncSession, user_repo: UserRepository):
         """Initialize with user repository"""
+        self.db = db
         self.user_repo = user_repo
 
     async def get(self, user_id: int) -> Optional[User]:

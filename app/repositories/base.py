@@ -92,27 +92,32 @@ class BaseRepository(Generic[ModelType]):
         
         return items, total
     
-    async def create(self, *, obj_in: Dict[str, Any]) -> ModelType:
+    async def create(self, *, obj_in: Dict[str, Any], commit_txn: Optional[bool] = True) -> ModelType:
         """
         Create a new record.
         
         Args:
             obj_in: Dictionary with field values
-            
+            commit_txn: Whether to commit the transaction
+
         Returns:
             Created record
         """
         db_obj = self.model(**obj_in)
         self.db.add(db_obj)
-        await self.db.commit()
-        await self.db.refresh(db_obj)
+
+        if commit_txn and commit_txn == True:
+            await self.db.commit()
+            await self.db.refresh(db_obj)
+
         return db_obj
-    
+
     async def update(
         self,
         *,
         id: Any,
-        obj_in: Dict[str, Any]
+        obj_in: Dict[str, Any], 
+        commit_txn: Optional[bool] = True
     ) -> Optional[ModelType]:
         """
         Update a record by ID.
@@ -133,12 +138,14 @@ class BaseRepository(Generic[ModelType]):
         for field, value in obj_in.items():
             if hasattr(db_obj, field):
                 setattr(db_obj, field, value)
-        
-        await self.db.commit()
-        await self.db.refresh(db_obj)
+                
+        if commit_txn and commit_txn == True:
+            await self.db.commit()
+            await self.db.refresh(db_obj)
+
         return db_obj
     
-    async def delete(self, *, id: Any) -> Optional[ModelType]:
+    async def delete(self, *, id: Any, commit_txn: Optional[bool] = True) -> Optional[ModelType]:
         """
         Delete a record by ID.
         
@@ -154,5 +161,8 @@ class BaseRepository(Generic[ModelType]):
             return None
         
         await self.db.delete(db_obj)
-        await self.db.commit()
+
+        if commit_txn and commit_txn == True:
+            await self.db.commit()
+
         return db_obj
