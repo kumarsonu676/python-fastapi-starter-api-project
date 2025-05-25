@@ -214,890 +214,463 @@ Prefer Pydantic models over raw dictionaries for input validation.
 
 ## Code Generation Examples
 
-### Example: Creating a Route
+### Example: Creating a SQLAlchemy model
 
 ```python
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
-from sqlalchemy.ext.asyncio import AsyncSession
+#filepath: `app/api/models/country.py`
 
-from app.db.session import get_db
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
-from app.schemas.common import PaginatedResponse
-from app.services.user_service import UserService
-from app.dependencies.auth import get_current_user
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from app.db.base_class import Base
 
-router = APIRouter(prefix="/users", tags=["users"])
+class Country(Base):
+    """Country model for database"""
+    __tablename__ = "countries"
 
-@router.post(
-    "/",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new user",
-    description="Create a new user with the provided details"
-)
-async def create_user(
-    user_in: UserCreate,
-    db: AsyncSession = Depends(get_db)
-) -> UserResponse:
-    """
-    Create a new user.
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, index=True, unique=True)
+    code = Column(String(3), nullable=False, unique=True, index=True)  # ISO 3166-1 alpha-3 code
+    phone_code = Column(String(5))  # International dialing code
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    Args:
-        user_in: User data to create
-        db: Database session
-
-    Returns:
-        Newly created user data
-
-    Raises:
-        HTTPException: If user with the same email already exists
-    """
-    user_service = UserService(db)
-    existing_user = await user_service.get_by_email(user_in.email)
-
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email already exists"
-        )
-
-    return await user_service.create(user_in)
-
-@router.get(
-    "/",
-    response_model=PaginatedResponse[UserResponse],
-    summary="Get all users",
-    description="Get a list of users with optional pagination and filtering"
-)
-async def get_users(
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=100, description="Max number of records to return"),
-    name: Optional[str] = Query(None, description="Filter by name"),
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> PaginatedResponse[UserResponse]:
-    """
-    Get list of users with pagination and optional filtering.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        name: Optional filter by name
-        current_user: Currently authenticated user
-        db: Database session
-
-    Returns:
-        Paginated list of users
-    """
-    user_service = UserService(db)
-    users, total = await user_service.get_multi(skip=skip, limit=limit, name=name)
-
-    return PaginatedResponse(
-        items=users,
-        total=total,
-        page=skip // limit + 1 if limit else 1,
-        size=limit,
-        pages=(total + limit - 1) // limit if limit else 1
-    )
-
-@router.get(
-    "/{user_id}",
-    response_model=UserResponse,
-    summary="Get user by ID",
-    description="Get detailed information about a specific user"
-)
-async def get_user(
-    user_id: int = Path(..., description="The ID of the user to get"),
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> UserResponse:
-    """
-    Get user by ID.
-
-    Args:
-        user_id: User ID
-        current_user: Currently authenticated user
-        db: Database session
-
-    Returns:
-        User data
-
-    Raises:
-        HTTPException: If user not found
-    """
-    user_service = UserService(db)
-    user = await user_service.get(user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    return user
-
-@router.put(
-    "/{user_id}",
-    response_model=UserResponse,
-    summary="Update user",
-    description="Update a user's information"
-)
-async def update_user(
-    user_in: UserUpdate,
-    user_id: int = Path(..., description="The ID of the user to update"),
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> UserResponse:
-    """
-    Update user information.
-
-    Args:
-        user_id: User ID to update
-        user_in: Updated user data
-        current_user: Currently authenticated user
-        db: Database session
-
-    Returns:
-        Updated user data
-
-    Raises:
-        HTTPException: If user not found
-    """
-    user_service = UserService(db)
-    user = await user_service.get(user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    return await user_service.update(user_id, user_in)
-
-@router.delete(
-    "/{user_id}",
-    response_model=UserResponse,
-    summary="Delete user",
-    description="Delete a user"
-)
-async def delete_user(
-    user_id: int = Path(..., description="The ID of the user to delete"),
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> UserResponse:
-    """
-    Delete a user.
-
-    Args:
-        user_id: User ID to delete
-        current_user: Currently authenticated user
-        db: Database session
-
-    Returns:
-        Deleted user data
-
-    Raises:
-        HTTPException: If user not found
-    """
-    user_service = UserService(db)
-    user = await user_service.get(user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    return await user_service.delete(user_id)
 ```
 
-### Example: Creating Pydantic Schemas
+### Example: Register the model in `app/db/base.py`
 
 ```python
-from datetime import datetime
+#filepath: `app/db/base.py`
+
+# Import all models for Alembic to detect
+from app.db.base_class import Base
+from app.models.user import User
+from app.models.country import Country
+
+```
+
+### Example: Creating a Pydantic schema
+
+```python
+#filepath: `app/schemas/country.py`
+
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, Field
+from datetime import datetime
 
-class UserBase(BaseModel):
-    """Base User Schema with common attributes"""
-    email: EmailStr
-    first_name: Optional[str] = Field(None, min_length=2, max_length=50)
-    last_name: Optional[str] = Field(None, min_length=2, max_length=50)
-    is_active: Optional[bool] = True
+class CountryBase(BaseModel):
+    """Base Country Schema with common attributes"""
+    name: str = Field(..., min_length=2, max_length=100, description="Name of the country")
+    code: str = Field(..., min_length=2, max_length=3, description="ISO country code (2 or 3 characters)")
+    phone_code: Optional[str] = Field(None, max_length=5, description="International calling code")
+    is_active: Optional[bool] = Field(True, description="Whether the country is active in the system")
 
-class UserCreate(UserBase):
-    """Schema for creating a new user"""
-    email: EmailStr
-    password: str = Field(..., min_length=8)
+class CountryCreate(CountryBase):
+    """Schema for creating a new country"""
+    pass
 
-    @validator('password')
-    def password_strength(cls, v):
-        """Validate password strength"""
-        if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
-        if not any(c.isupper() for c in v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?/`~" for c in v):
-            raise ValueError('Password must contain at least one special character')
-        return v
+class CountryUpdate(CountryBase):
+    """Schema for updating country information"""
+    pass
 
-class UserUpdate(BaseModel):
-    """Schema for updating user information"""
-    email: Optional[EmailStr] = None
-    first_name: Optional[str] = Field(None, min_length=2, max_length=50)
-    last_name: Optional[str] = Field(None, min_length=2, max_length=50)
-    is_active: Optional[bool] = None
-
-class UserResponse(UserBase):
-    """Schema for user response"""
+class CountryResponse(CountryBase):
+    """Schema for country response"""
     id: int
     created_at: datetime
     updated_at: datetime
 
     class Config:
+        """Pydantic configuration"""
         orm_mode = True
-```
 
-### Example: Creating a Common Schema
-
-```python
-from typing import Generic, List, Optional, TypeVar
-from pydantic import BaseModel, Field
-from pydantic.generics import GenericModel
-
-T = TypeVar('T')
-
-class PaginatedResponse(GenericModel, Generic[T]):
-    """Generic paginated response schema"""
-    items: List[T]
-    total: int
-    page: int
-    size: int
-    pages: int
-
-class ErrorResponse(BaseModel):
-    """Standard error response schema"""
-    detail: str
-    code: Optional[str] = None
-
-class SuccessResponse(BaseModel):
-    """Standard success response schema with no data"""
-    message: str = "Operation completed successfully"
-```
-
-### Example: Creating a Database Model
-
-```python
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
-from sqlalchemy.orm import relationship
-
-from app.db.base_class import Base
-
-class User(Base):
-    """User model for database"""
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    first_name = Column(String, index=True)
-    last_name = Column(String, index=True)
-    is_active = Column(Boolean, default=True)
-    is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-    # Define relationships
-    items = relationship("Item", back_populates="owner")
-```
-
-### Example: Creating a Service
-
-```python
-from typing import List, Optional, Tuple, Union
-from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
-from app.core.security import get_password_hash
-
-class UserService:
-    """Service for user-related operations"""
-
-    def __init__(self, db: AsyncSession):
-        """Initialize with database session"""
-        self.db = db
-
-    async def get(self, user_id: int) -> Optional[User]:
-        """Get a user by ID"""
-        query = select(User).where(User.id == user_id)
-        result = await self.db.execute(query)
-        return result.scalars().first()
-
-    async def get_by_email(self, email: str) -> Optional[User]:
-        """Get a user by email"""
-        query = select(User).where(User.email == email)
-        result = await self.db.execute(query)
-        return result.scalars().first()
-
-    async def get_multi(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        name: Optional[str] = None
-    ) -> Tuple[List[User], int]:
-        """
-        Get multiple users with filtering and pagination
-
-        Returns:
-            Tuple containing list of users and total count
-        """
-        # Base query
-        query = select(User)
-
-        # Apply filters if provided
-        if name:
-            query = query.where(
-                or_(
-                    User.first_name.ilike(f"%{name}%"),
-                    User.last_name.ilike(f"%{name}%")
-                )
-            )
-
-        # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = await self.db.execute(count_query)
-        total = total.scalar_one()
-
-        # Apply pagination
-        query = query.offset(skip).limit(limit)
-
-        # Execute query
-        result = await self.db.execute(query)
-        users = result.scalars().all()
-
-        return users, total
-
-    async def create(self, obj_in: UserCreate) -> User:
-        """Create a new user"""
-        hashed_password = get_password_hash(obj_in.password)
-
-        # Create user object
-        db_obj = User(
-            email=obj_in.email,
-            hashed_password=hashed_password,
-            first_name=obj_in.first_name,
-            last_name=obj_in.last_name,
-            is_active=obj_in.is_active
-        )
-
-        # Add to database
-        self.db.add(db_obj)
-        await self.db.commit()
-        await self.db.refresh(db_obj)
-
-        return db_obj
-
-    async def update(self, user_id: int, obj_in: Union[UserUpdate, dict]) -> Optional[User]:
-        """Update a user"""
-        # Get current user
-        db_obj = await self.get(user_id)
-        if not db_obj:
-            return None
-
-        # Convert to dict if it's a Pydantic model
-        update_data = obj_in if isinstance(obj_in, dict) else obj_in.dict(exclude_unset=True)
-
-        # Update user attributes
-        for field, value in update_data.items():
-            if field != "password" and hasattr(db_obj, field) and value is not None:
-                setattr(db_obj, field, value)
-
-        # Handle password update separately
-        if "password" in update_data and update_data["password"]:
-            db_obj.hashed_password = get_password_hash(update_data["password"])
-
-        # Commit changes
-        await self.db.commit()
-        await self.db.refresh(db_obj)
-
-        return db_obj
-
-    async def delete(self, user_id: int) -> Optional[User]:
-        """Delete a user"""
-        db_obj = await self.get(user_id)
-        if not db_obj:
-            return None
-
-        await self.db.delete(db_obj)
-        await self.db.commit()
-
-        return db_obj
 ```
 
 ### Example: Creating a Repository
 
 ```python
-from typing import List, Optional, Tuple, Dict, Any
-from sqlalchemy import func, select, or_
+
+#filepath: `app/repositories/country.py`
+
+from typing import Optional
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.country import Country
+from app.repositories.base import BaseRepository
 
-from app.models.user import User
-
-class UserRepository:
-    """Repository for user-related database operations"""
+class CountryRepository(BaseRepository[Country]):
+    """Repository for country-related database operations"""
 
     def __init__(self, db: AsyncSession):
-        """Initialize with database session"""
-        self.db = db
+        """Initialize with database session and model"""
+        super().__init__(db, Country)
 
-    async def get(self, user_id: int) -> Optional[User]:
-        """Get a user by ID"""
-        query = select(User).where(User.id == user_id)
-        result = await self.db.execute(query)
-        return result.scalars().first()
 
-    async def get_by_email(self, email: str) -> Optional[User]:
-        """Get a user by email"""
-        query = select(User).where(User.email == email)
-        result = await self.db.execute(query)
-        return result.scalars().first()
-
-    async def get_multi(
-        self,
-        filters: Dict[str, Any] = None,
-        skip: int = 0,
-        limit: int = 100
-    ) -> Tuple[List[User], int]:
-        """
-        Get multiple users with filtering and pagination
-
-        Args:
-            filters: Optional dict of filter conditions
-            skip: Number of records to skip
-            limit: Max number of records to return
-
-        Returns:
-            Tuple containing list of users and total count
-        """
-        # Base query
-        query = select(User)
-
-        # Apply filters if provided
-        if filters:
-            if "name" in filters and filters["name"]:
-                query = query.where(
-                    or_(
-                        User.first_name.ilike(f"%{filters['name']}%"),
-                        User.last_name.ilike(f"%{filters['name']}%")
-                    )
-                )
-            if "email" in filters and filters["email"]:
-                query = query.where(User.email.ilike(f"%{filters['email']}%"))
-            if "is_active" in filters and filters["is_active"] is not None:
-                query = query.where(User.is_active == filters["is_active"])
-
-        # Get total count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = await self.db.execute(count_query)
-        total = total.scalar_one()
-
-        # Apply pagination
-        query = query.offset(skip).limit(limit)
-
-        # Execute query
-        result = await self.db.execute(query)
-        users = result.scalars().all()
-
-        return users, total
-
-    async def create(self, user_data: Dict[str, Any]) -> User:
-        """Create a new user"""
-        # Create user object
-        db_obj = User(**user_data)
-
-        # Add to database
-        self.db.add(db_obj)
-        await self.db.commit()
-        await self.db.refresh(db_obj)
-
-        return db_obj
-
-    async def update(self, user_id: int, update_data: Dict[str, Any]) -> Optional[User]:
-        """
-        Update a user
-
-        Args:
-            user_id: ID of user to update
-            update_data: Dict of fields to update
-
-        Returns:
-            Updated user object or None if not found
-        """
-        # Get current user
-        db_obj = await self.get(user_id)
-        if not db_obj:
-            return None
-
-        # Update user attributes
-        for field, value in update_data.items():
-            if hasattr(db_obj, field):
-                setattr(db_obj, field, value)
-
-        # Commit changes
-        await self.db.commit()
-        await self.db.refresh(db_obj)
-
-        return db_obj
-
-    async def delete(self, user_id: int) -> Optional[User]:
-        """Delete a user"""
-        db_obj = await self.get(user_id)
-        if not db_obj:
-            return None
-
-        await self.db.delete(db_obj)
-        await self.db.commit()
-
-        return db_obj
 ```
 
-### Example: Creating a Dependency
+### Example: Creating a Service
 
 ```python
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+#filepath: `app/services/country.py`
+
+from typing import List, Optional, Union
+
+from app.core.security import get_password_hash
+from app.exceptions.http_exceptions import ConflictError, NotFoundError
+from app.models.country import Country
+from app.repositories.country import CountryRepository
+from app.schemas.country import CountryCreate, CountryUpdate
+
+class CountryService:
+
+    def __init__(self, country_repo: CountryRepository):
+        """Initialize with country repository"""
+        self.country_repo = country_repo
+
+    async def get(self, country_id: int) -> Optional[Country]:
+        """Get a country by ID"""
+        result = await self.country_repo.get(country_id)
+        return result
+
+    async def get_all(self) -> List[Country]:
+        """Get all countries"""
+        countries, _ = await self.country_repo.get_multi()
+        return countries
+
+    async def create(self, obj_in: CountryCreate) -> Country:
+
+        # Check if country with the same code already exists
+        existing_country = await self.country_repo.get_by_code(obj_in.code)
+        if existing_country:
+            raise ConflictError(
+                error_code="COUNTRY_ALREADY_EXISTS",
+                detail=f"Country with code {obj_in.code} already exists"
+            )
+
+        """Create a new country"""
+        return await self.country_repo.create(obj_in=obj_in.dict())
+
+    async def update(self, country_id: int, obj_in: Union[CountryUpdate, dict]) -> Optional[Country]:
+        """Update a country"""
+        # Get current country
+        db_obj = await self.country_repo.get(country_id)
+        if not db_obj:
+            raise NotFoundError(
+                error_code="COUNTRY_NOT_FOUND",
+                detail=f"Country with ID {country_id} not found"
+            )
+
+        # Convert to dict if it's a Pydantic model
+        update_data = obj_in if isinstance(obj_in, dict) else obj_in.dict(exclude_unset=True)
+
+        # Check if country with the same code already exists
+        existing_country = await self.country_repo.get_by_code(update_data.get("code") or "")
+        if existing_country is not None and existing_country.id.__eq__(country_id) is False:
+            raise ConflictError(
+                error_code="COUNTRY_ALREADY_EXISTS",
+                detail=f"Country with code {update_data.get('code')} already exists"
+            )
+
+        # Update fields
+        for key, value in update_data.items():
+            setattr(db_obj, key, value)
+
+        # Convert Country model to dictionary for repository update
+        update_dict = {
+            column.name: getattr(db_obj, column.name)
+            for column in Country.__table__.columns
+            if column.name != "id"
+        }
+
+        return await self.country_repo.update(id=country_id, obj_in=update_dict)
+
+    async def delete(self, country_id: int) -> Optional[Country]:
+        """Delete a country by ID"""
+
+        # Check if country exists
+        db_obj = await self.country_repo.get(country_id)
+        if not db_obj:
+            raise NotFoundError(
+                error_code="COUNTRY_NOT_FOUND",
+                detail=f"Country with ID {country_id} not found"
+            )
+
+        result = await self.country_repo.delete(id=country_id)
+        return result
+
+```
+
+### Example: Registering the Service Dependency in `app/dependencies/services.py` file
+
+```python
+#filepath: `app/dependencies/services.py`
+
+
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.core.config import settings
-from app.core.security import verify_token
-from app.models.user import User
-from app.schemas.token import TokenPayload
-from app.services.user_service import UserService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+from app.repositories.user import UserRepository
+from app.services.user import UserService
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    """
-    Get the current authenticated user from the token.
+from app.repositories.country import CountryRepository
+from app.services.country import CountryService
 
-    Args:
-        token: JWT access token
-        db: Database session
 
-    Returns:
-        Current authenticated user
+def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
+    return UserService(UserRepository(db))
 
-    Raises:
-        HTTPException: If authentication fails
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+def get_country_service(db: AsyncSession = Depends(get_db)) -> CountryService:
+    return CountryService(CountryRepository(db))
+
+```
+
+### Example: Creating a FastAPI Router/Endpoint
+
+```python
+#filepath: `app/api/v1/endpoints/country.py`
+
+from typing import List
+from fastapi import APIRouter, Depends, status
+
+from app.dependencies.auth import authorize
+from app.dependencies.services import get_country_service
+from app.dtos.custom_response_dto import CustomResponse
+from app.models.user import UserRole
+from app.schemas.country import CountryCreate, CountryResponse, CountryUpdate
+from app.schemas.user import UserResponse
+from app.services.country import CountryService
+from app.utils.response import create_response
+
+router = APIRouter()
+
+@router.get(
+    "/",
+    response_model=CustomResponse[List[CountryResponse]],
+    summary="Get all countries",
+    description="Get a list of all countries"
+)
+async def get_countries(
+    country_service: CountryService = Depends(get_country_service)
+):
+    countries = await country_service.get_all_countries()
+
+    if not countries:
+        return create_response(
+            data=None
+        )
+
+    return create_response(
+        data=[CountryResponse.from_orm(countries) for countries in countries]
     )
 
-    try:
-        # Decode token
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
-        user_id: int = int(payload.get("sub"))
-        if user_id is None:
-            raise credentials_exception
+@router.get(
+    "/{id}",
+    response_model=CustomResponse[CountryResponse],
+    summary="Get country by ID",
+    description="Get a country by its ID"
+)
+async def get_country(
+    id: int,
+    country_service: CountryService = Depends(get_country_service)
+):
+    country = await country_service.get(id)
 
-        token_data = TokenPayload(sub=str(user_id))
-    except JWTError:
-        raise credentials_exception
-
-    # Get user from database
-    user_service = UserService(db)
-    user = await user_service.get(int(token_data.sub))
-
-    if user is None:
-        raise credentials_exception
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
+    if not country:
+        return create_response(
+            data=None
         )
 
-    return user
+    return create_response(
+        data=CountryResponse.from_orm(country)
+    )
 
-async def get_current_active_superuser(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """
-    Get the current authenticated superuser.
 
-    Args:
-        current_user: Current authenticated user
+@router.post(
+    "/",
+    response_model=CustomResponse[CountryResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new country",
+    description="Create a new country with the provided details"
+)
+async def create_country(
+    country_create: CountryCreate,
+    country_service: CountryService = Depends(get_country_service),
+    _ = Depends(authorize(allowed_roles=[UserRole.ADMIN.value]))
+):
 
-    Returns:
-        Current authenticated superuser
+    country = await country_service.create(obj_in=country_create)
 
-    Raises:
-        HTTPException: If user is not a superuser
-    """
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+    return create_response(
+        data=CountryResponse.from_orm(country)
+    )
 
-    return current_user
+
+
+@router.put(
+    "/{id}",
+    response_model=CustomResponse[CountryResponse],
+    summary="Update a country",
+    description="Update an existing country by its ID"
+)
+async def update_country(
+    id: int,
+    country_update: CountryUpdate,
+    country_service: CountryService = Depends(get_country_service),
+    _: UserResponse = Depends(authorize(allowed_roles=[UserRole.ADMIN.value]))
+):
+    country = await country_service.update(id, obj_in=country_update)
+
+    return create_response(
+        data=CountryResponse.from_orm(country)
+    )
+
+
+@router.delete(
+    "/{id}",
+    response_model=CustomResponse[CountryResponse],
+    summary="Delete a country",
+    description="Delete a country by its ID"
+)
+async def delete_country(
+    id: int,
+    country_service: CountryService = Depends(get_country_service),
+    _ = Depends(authorize(allowed_roles=[UserRole.ADMIN.value]))
+):
+    await country_service.delete(id)
+
+    return create_response(
+        data="Country deleted successfully",
+        status_code=status.HTTP_204_NO_CONTENT
+    )
+
 ```
 
-### Example: Creating Core Configuration
+### Example: Registering the Router in `app/api/v1/api.py`
 
 ```python
-from typing import Any, Dict, Optional, List
-from pydantic import BaseSettings, EmailStr, validator, PostgresDsn
-import secrets
+#filepath: `app/api/v1/api.py`
 
-class Settings(BaseSettings):
-    """Application settings"""
+from fastapi import APIRouter
 
-    API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
-    ALGORITHM: str = "HS256"
+from app.api.v1.endpoints import health
+from app.api.v1.endpoints import users
+from app.api.v1.endpoints import auth
+from app.api.v1.endpoints import country
 
-    # CORS settings
-    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+api_router = APIRouter()
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
-        """Parse CORS origins from string or list"""
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+api_router.include_router(health.router, prefix="/health", tags=["health"])
+api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(country.router, prefix="/countries", tags=["countries"])
 
-    # Database settings
-    POSTGRES_SERVER: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
+# This is the main API router that includes all endpoint routers
 
-    @validator("SQLALCHEMY_DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
-        """Construct database URI from components"""
-        if isinstance(v, str):
-            return v
-        return PostgresDsn.build(
-            scheme="postgresql+asyncpg",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            path=f"/{values.get('POSTGRES_DB') or ''}",
-        )
-
-    # Email settings
-    SMTP_TLS: bool = True
-    SMTP_PORT: Optional[int] = None
-    SMTP_HOST: Optional[str] = None
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    EMAILS_FROM_EMAIL: Optional[EmailStr] = None
-    EMAILS_FROM_NAME: Optional[str] = None
-
-    # First superuser
-    FIRST_SUPERUSER_EMAIL: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
-
-    class Config:
-        """Configuration for settings"""
-        env_file = ".env"
-        case_sensitive = True
-
-settings = Settings()
 ```
 
-### Example: Database Session Management
+### Example: Creating the middleware
 
 ```python
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+#filepath: `app/middlewares/custom_middleware.py`
 
+from typing import Callable
+from fastapi import FastAPI, Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
+from app.utils.response import create_response
+from fastapi import status
 
-# Create async engine
-engine = create_async_engine(
-    settings.SQLALCHEMY_DATABASE_URI,
-    pool_pre_ping=True,
-    echo=False,
-)
+class CustomMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """
+        Middleware to check the client ID in the request header.
+        Args:
+            request: The incoming request
+            call_next: The next middleware or route handler
+        Returns:
+            The response from the next middleware or route handler
+        Raises:
+            HTTPException: If the client ID is invalid
+        """
 
-# Create async session factory
-AsyncSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+        # Get the list of valid client IDs from environment variables
+        valid_client_ids: list[str] = settings.CLIENT_IDS.split(",")
 
-async def get_db() -> AsyncSession:
+        # Check if client ID is in the request header
+        client_id = request.headers.get("X-Client-ID")
+
+        # Skip client ID check for specific paths if needed
+        excluded_paths: list[str] = ["/", "/favicon.ico", "/api/v1/docs", "/api/v1/redoc", "/api/v1/openapi.json", "/api/v1/health", "/api/v1/health/", "/api/v1/auth/token", "/api/v1/auth/token/"]
+        if request.url.path in excluded_paths:
+            return await call_next(request)
+
+        # if path starts with /images, /css, /js, /favicon.ico, skip client ID check
+        if request.url.path.startswith("/images") or request.url.path.startswith("/css") or request.url.path.startswith("/js") or request.url.path.startswith("/favicon.ico"):
+            return await call_next(request)
+
+        # Validate client ID
+        if not client_id:
+            return create_response(
+                success=False,
+                message="Missing X-Client-ID header",
+                errors=["Missing X-Client-ID header"],
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if client_id not in valid_client_ids:
+            return create_response(
+                success=False,
+                message="Invalid X-Client-ID",
+                errors=["Invalid X-Client-ID"],
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        # Continue processing the request if client ID is valid
+        return await call_next(request)
+
+
+def setup_custom_middleware(app: FastAPI) -> None:
     """
-    Dependency for getting async DB session
-
-    Yields:
-        AsyncSession: SQLAlchemy async session
+    Set up custom middleware for the application.
+    This middleware checks the client ID in the request header
+    and validates it against a list of valid client IDs.
+    Args:
+        app: FastAPI application instance
     """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+    app.add_middleware(CustomMiddleware)
+
+
 ```
 
-### Example: Base Database Model Class
+### Example: Registering the Middleware in `app/middlewares/setup.py`
 
 ```python
-from typing import Any
-from sqlalchemy.ext.declarative import as_declarative, declared_attr
+#filepath: `app/main.py`
 
-@as_declarative()
-class Base:
-    """Base class for all database models"""
-
-    # Generate __tablename__ automatically based on class name
-    @declared_attr
-    def __tablename__(cls) -> str:
-        return cls.__name__.lower()
-```
-
-### Example: Creating a Custom Exception
-
-```python
-from fastapi import HTTPException, status
-
-class NotFoundError(HTTPException):
-    """Exception raised when a resource is not found"""
-
-    def __init__(self, resource_name: str, resource_id: Any = None):
-        detail = f"{resource_name} not found"
-        if resource_id:
-            detail = f"{resource_name} with id {resource_id} not found"
-
-        super().__init__(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=detail
-        )
-
-class ConflictError(HTTPException):
-    """Exception raised when there's a conflict with existing resources"""
-
-    def __init__(self, detail: str):
-        super().__init__(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail
-        )
-
-class UnauthorizedError(HTTPException):
-    """Exception raised for authentication failures"""
-
-    def __init__(self, detail: str = "Not authenticated"):
-        super().__init__(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=detail,
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-class ForbiddenError(HTTPException):
-    """Exception raised for permission issues"""
-
-    def __init__(self, detail: str = "Not enough permissions"):
-        super().__init__(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=detail
-        )
-
-class BadRequestError(HTTPException):
-    """Exception raised for invalid requests"""
-
-    def __init__(self, detail: str):
-        super().__init__(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=detail
-        )
-```
-
-### Example: Main Application Setup
-
-```python
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.docs import get_swagger_ui_html
-import logging
+from app.middlewares.custom_middleware import setup_custom_middleware
 
-from app.api.v1.api import api_router
-from app.core.config import settings
+def setup_middlewares(app: FastAPI) -> None:
+    """
+    Set up all middlewares for the application.
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+    Args:
+        app: FastAPI application instance
+    """
+    # Set up CORS middleware
+    setup_cors_middleware(app)
 
-# Create FastAPI app
-app = FastAPI(
-    title="FastAPI Application",
-    description="FastAPI application with SQLAlchemy, PostgreSQL, and more",
-    version="0.1.0",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url=None,  # Disable default docs URL
-    redoc_url=None,  # Disable default redoc URL
-)
+    # Set up logging middleware
+    setup_logging_middleware(app)
 
-# Set up CORS middleware
-if settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # Set up custom middleware
+    setup_custom_middleware(app)
 
-# Custom docs URL
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
-    return get_swagger_ui_html(
-        openapi_url=f"{settings.API_V1_STR}/openapi.json",
-        title="API Docs",
-        swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4/swagger-ui-bundle.js",
-        swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4/swagger-ui.css",
-    )
-
-# Include API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
-
-@app.get("/", include_in_schema=False)
-def root():
-    """Root endpoint for health checks"""
-    return {"message": "API is running"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
 ```
 
 ## Notes
 
-- Replace placeholders like `<resource>`, `<model>`, and `<schema>` with actual names relevant to your use case.
+- Replace placeholders like `<resource>`, `<model>`, and `<schema>` with actual names relevant to the use case.
 - Always use Pydantic models for data validation and serialization.
 - Keep routes thin by delegating business logic to service classes.
 - Use async/await for database operations to ensure proper performance.
@@ -1105,3 +678,5 @@ if __name__ == "__main__":
 - Organize code by responsibility (routes, services, repositories).
 - Use SQLAlchemy and Alembic for database interactions and migrations.
 - Leverage FastAPI's built-in dependency injection system for clean code organization.
+- Ensure all endpoints are documented with OpenAPI specifications.
+- Use environment variables for configuration and sensitive data management.
