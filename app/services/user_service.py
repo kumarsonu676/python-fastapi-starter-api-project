@@ -69,6 +69,6 @@ class UserService:
         if not db_obj:
             return None
 
-        await self.user_repo.delete(db_obj)
+        await self.user_repo.delete(id=user_id)
 
         return db_obj
