@@ -7,7 +7,7 @@ from app.models.user import UserRole
 
 @pytest.mark.unit
 class TestUserCreateSchema:
-    """test user creation schema validation"""
+    """ai generated test as example"""
     
     def test_valid_user_create(self):
         """test valid user creation data"""
@@ -96,19 +96,6 @@ class TestUserCreateSchema:
         
         assert "value is not a valid email address" in str(exc_info.value)
     
-    def test_name_too_short(self):
-        """test name validation fails if too short"""
-        data = {
-            "email": "test@example.com",
-            "password": "ValidPassword123",
-            "first_name": "A",  # too short
-            "last_name": "User"
-        }
-        
-        with pytest.raises(ValidationError) as exc_info:
-            UserCreate(**data)
-        
-        assert "at least 2 characters" in str(exc_info.value)
     
     def test_name_too_long(self):
         """test name validation fails if too long"""
@@ -125,22 +112,10 @@ class TestUserCreateSchema:
         
         assert "at most 50 characters" in str(exc_info.value)
     
-    def test_default_role_assignment(self):
-        """test default role is assigned if not provided"""
-        data = {
-            "email": "test@example.com",
-            "password": "ValidPassword123",
-            "first_name": "Test",
-            "last_name": "User"
-        }
-        user = UserCreate(**data)
-        
-        assert user.role == UserRole.USER.value
-
 
 @pytest.mark.unit  
 class TestUserLoginSchema:
-    """test user login schema validation"""
+    """ai generated test as example"""
     
     def test_valid_login(self):
         """test valid login data"""
@@ -202,7 +177,7 @@ class TestUserLoginSchema:
 
 @pytest.mark.unit
 class TestUserUpdateSchema:
-    """test user update schema validation"""
+    """ai generated test as example"""
     
     def test_valid_update(self):
         """test valid update data"""

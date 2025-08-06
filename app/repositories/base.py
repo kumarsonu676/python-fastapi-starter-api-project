@@ -62,14 +62,17 @@ class BaseRepository(Generic[ModelType]):
         # Apply filters if provided
         if filters:
             for field, value in filters.items():
-                if hasattr(self.model, field) and value is not None:
-                    # Handle special case for search fields
-                    if field.endswith("_contains") and value:
-                        field_name = field.replace("_contains", "")
-                        if hasattr(self.model, field_name):
-                            query = query.where(getattr(self.model, field_name).ilike(f"%{value}%"))
+                # Handle special case for search fields first
+                if field.endswith("_contains") and value:
+                    field_name = field.replace("_contains", "")
+                    if hasattr(self.model, field_name):
+                        # problem found using integration test, changed to database-agnostic case insensitive search
+                        column = getattr(self.model, field_name)
+                        search_pattern = f"%{value}%"
+                        query = query.where(func.lower(column).like(func.lower(search_pattern)))
+                elif hasattr(self.model, field) and value is not None:
                     # Handle boolean fields
-                    elif isinstance(value, bool):
+                    if isinstance(value, bool):
                         query = query.where(getattr(self.model, field) == value)
                     # Handle list values (IN operator)
                     elif isinstance(value, list):
@@ -88,7 +91,7 @@ class BaseRepository(Generic[ModelType]):
         
         # Execute query
         result = await self.db.execute(query)
-        items = result.scalars().all()
+        items = list(result.scalars().all())
         
         return items, total
     

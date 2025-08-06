@@ -52,16 +52,15 @@ class UserService:
         # Convert to dict if it's a Pydantic model
         update_data = obj_in if isinstance(obj_in, dict) else obj_in.dict(exclude_unset=True)
 
-        # Update user attributes
-        for field, value in update_data.items():
-            if field != "password" and hasattr(db_obj, field) and value is not None:
-                setattr(db_obj, field, value)
+        # Filter out None values from update_data
+        filtered_update_data = {k: v for k, v in update_data.items() if v is not None}
 
         # Handle password update separately
-        if "password" in update_data and update_data["password"]:
-            db_obj.hashed_password = update_data["password"]
+        if "password" in filtered_update_data and filtered_update_data["password"]:
+            filtered_update_data["hashed_password"] = get_password_hash(filtered_update_data["password"])
+            del filtered_update_data["password"]  # remove plaintext password
         
-        return await self.user_repo.update(db_obj)
+        return await self.user_repo.update(id=user_id, obj_in=filtered_update_data)
 
     async def delete(self, user_id: int) -> Optional[User]:
         """Delete a user"""

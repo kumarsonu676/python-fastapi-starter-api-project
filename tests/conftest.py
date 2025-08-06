@@ -1,11 +1,17 @@
 import asyncio
+import os
+from dotenv import load_dotenv
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
+
+# Pytest override environment variables for testing
+load_dotenv(".env.test")
 
 from app.main import app
 from app.db.base_class import Base
@@ -17,8 +23,8 @@ from app.services.user_service import UserService
 from app.core.security import get_password_hash
 
 
-# test database url using sqlite for speed and isolation
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+# test database url using in-memory sqlite for better isolation
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # create test engine
 test_engine = create_async_engine(
@@ -29,17 +35,16 @@ test_engine = create_async_engine(
 )
 
 # create test session factory
-TestAsyncSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
+TestAsyncSessionLocal = async_sessionmaker(
     bind=test_engine,
-    class_=AsyncSession
+    class_=AsyncSession,
+    expire_on_commit=False
 )
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def setup_test_db():
-    """setup test database schema"""
+    """setup test database schema for each test"""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -59,19 +64,19 @@ async def db_session(setup_test_db):
 
 
 @pytest_asyncio.fixture
-async def user_repository(db_session):
+async def user_repository(db_session) -> UserRepository:
     """provide user repository instance"""
     return UserRepository(db_session)
 
 
 @pytest_asyncio.fixture 
-async def user_service(db_session, user_repository):
+async def user_service(db_session, user_repository) -> UserService:
     """provide user service instance"""
     return UserService(db_session, user_repository)
 
 
 @pytest_asyncio.fixture
-async def test_user_data():
+async def test_user_data() -> dict[str, str]:
     """provide test user data"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -85,13 +90,13 @@ async def test_user_data():
 
 
 @pytest_asyncio.fixture
-async def test_user_create(test_user_data):
+async def test_user_create(test_user_data) -> UserCreate:
     """provide test user create schema"""
     return UserCreate(**test_user_data)
 
 
 @pytest_asyncio.fixture
-async def created_user(db_session, user_service, test_user_create):
+async def created_user(db_session, user_service: UserService, test_user_create: UserCreate) -> User:
     """create and return test user in database"""
     user = await user_service.create(test_user_create)
     await db_session.commit()
@@ -100,7 +105,7 @@ async def created_user(db_session, user_service, test_user_create):
 
 
 @pytest_asyncio.fixture
-async def test_admin_data():
+async def test_admin_data() -> dict:
     """provide test admin user data"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -114,7 +119,7 @@ async def test_admin_data():
 
 
 @pytest_asyncio.fixture
-async def created_admin(db_session, user_service, test_admin_data):
+async def created_admin(db_session, user_service: UserService, test_admin_data: dict) -> User:
     """create and return test admin user in database"""
     admin_create = UserCreate(**test_admin_data)
     admin = await user_service.create(admin_create)
@@ -123,7 +128,6 @@ async def created_admin(db_session, user_service, test_admin_data):
     return admin
 
 
-# override database dependency for testing
 async def override_get_db():
     async with TestAsyncSessionLocal() as session:
         yield session
@@ -133,7 +137,7 @@ async def override_get_db():
 async def client(setup_test_db):
     """provide async http client for functional tests"""
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(app=app, base_url="http://test", headers={"X-Client-ID": "test-client"}) as ac:
         yield ac
     app.dependency_overrides.clear()
 
