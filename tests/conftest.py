@@ -31,14 +31,12 @@ test_engine = create_async_engine(
     TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
-    echo=False
+    echo=False,
 )
 
 # create test session factory
 TestAsyncSessionLocal = async_sessionmaker(
-    bind=test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False
+    bind=test_engine, class_=AsyncSession, expire_on_commit=False
 )
 
 
@@ -69,7 +67,7 @@ async def user_repository(db_session) -> UserRepository:
     return UserRepository(db_session)
 
 
-@pytest_asyncio.fixture 
+@pytest_asyncio.fixture
 async def user_service(db_session, user_repository) -> UserService:
     """provide user service instance"""
     return UserService(db_session, user_repository)
@@ -79,13 +77,14 @@ async def user_service(db_session, user_repository) -> UserService:
 async def test_user_data() -> dict[str, str]:
     """provide test user data"""
     import uuid
+
     unique_id = str(uuid.uuid4())[:8]
     return {
         "email": f"test{unique_id}@example.com",
         "password": "TestPassword123",
         "first_name": "Test",
         "last_name": "User",
-        "role": UserRole.USER.value
+        "role": UserRole.USER.value,
     }
 
 
@@ -96,7 +95,9 @@ async def test_user_create(test_user_data) -> UserCreate:
 
 
 @pytest_asyncio.fixture
-async def created_user(db_session, user_service: UserService, test_user_create: UserCreate) -> User:
+async def created_user(
+    db_session, user_service: UserService, test_user_create: UserCreate
+) -> User:
     """create and return test user in database"""
     user = await user_service.create(test_user_create)
     await db_session.commit()
@@ -108,18 +109,21 @@ async def created_user(db_session, user_service: UserService, test_user_create: 
 async def test_admin_data() -> dict:
     """provide test admin user data"""
     import uuid
+
     unique_id = str(uuid.uuid4())[:8]
     return {
-        "email": f"admin{unique_id}@example.com", 
+        "email": f"admin{unique_id}@example.com",
         "password": "AdminPassword123",
         "first_name": "Admin",
         "last_name": "User",
-        "role": UserRole.ADMIN.value
+        "role": UserRole.ADMIN.value,
     }
 
 
 @pytest_asyncio.fixture
-async def created_admin(db_session, user_service: UserService, test_admin_data: dict) -> User:
+async def created_admin(
+    db_session, user_service: UserService, test_admin_data: dict
+) -> User:
     """create and return test admin user in database"""
     admin_create = UserCreate(**test_admin_data)
     admin = await user_service.create(admin_create)
@@ -137,7 +141,9 @@ async def override_get_db():
 async def client(setup_test_db):
     """provide async http client for functional tests"""
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(app=app, base_url="http://test", headers={"X-Client-ID": "test-client"}) as ac:
+    async with AsyncClient(
+        app=app, base_url="http://test", headers={"X-Client-ID": "test-client"}
+    ) as ac:
         yield ac
     app.dependency_overrides.clear()
 
@@ -148,4 +154,4 @@ def sync_client():
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as client:
         yield client
-    app.dependency_overrides.clear() 
+    app.dependency_overrides.clear()
