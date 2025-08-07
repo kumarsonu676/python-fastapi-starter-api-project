@@ -71,15 +71,18 @@ class BaseRepository(Generic[ModelType]):
                         search_pattern = f"%{value}%"
                         query = query.where(func.lower(column).like(func.lower(search_pattern)))
                 elif hasattr(self.model, field) and value is not None:
+                    # Handle enum values by converting to string
+                    filter_value = value.value if hasattr(value, 'value') else value
+                    
                     # Handle boolean fields
-                    if isinstance(value, bool):
-                        query = query.where(getattr(self.model, field) == value)
+                    if isinstance(filter_value, bool):
+                        query = query.where(getattr(self.model, field) == filter_value)
                     # Handle list values (IN operator)
-                    elif isinstance(value, list):
-                        query = query.where(getattr(self.model, field).in_(value))
+                    elif isinstance(filter_value, list):
+                        query = query.where(getattr(self.model, field).in_(filter_value))
                     # Default exact match
                     else:
-                        query = query.where(getattr(self.model, field) == value)
+                        query = query.where(getattr(self.model, field) == filter_value)
         
         # Count total records
         count_query = select(func.count()).select_from(query.subquery())
@@ -106,7 +109,15 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             Created record
         """
-        db_obj = self.model(**obj_in)
+        # handle enum values by converting to their string representation
+        processed_data = {}
+        for key, value in obj_in.items():
+            if hasattr(value, 'value'):  # enum objects have .value attribute
+                processed_data[key] = value.value
+            else:
+                processed_data[key] = value
+                
+        db_obj = self.model(**processed_data)
         self.db.add(db_obj)
 
         if commit_txn and commit_txn == True:
@@ -140,7 +151,9 @@ class BaseRepository(Generic[ModelType]):
         # Update fields
         for field, value in obj_in.items():
             if hasattr(db_obj, field):
-                setattr(db_obj, field, value)
+                # handle enum values by converting to their string representation
+                processed_value = value.value if hasattr(value, 'value') else value
+                setattr(db_obj, field, processed_value)
                 
         if commit_txn and commit_txn == True:
             await self.db.commit()

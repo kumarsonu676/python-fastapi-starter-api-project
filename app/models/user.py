@@ -27,3 +27,13 @@ class User(Base):
     role: Mapped[Optional[str]] = mapped_column(String(20), default=UserRole.USER.value, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    @property
+    def role_enum(self) -> Optional[UserRole]:
+        """Get role as enum object for type safety"""
+        if self.role:
+            try:
+                return UserRole(self.role)
+            except ValueError:
+                return None
+        return None
