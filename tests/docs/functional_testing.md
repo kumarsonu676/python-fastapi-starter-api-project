@@ -1,14 +1,5 @@
 # Functional Testing Guide
 
-## What Are Functional Tests?
-
-- test complete application stack (http → controllers → services → database)
-- make actual http requests to api endpoints
-- test user workflows end-to-end
-- verify authentication and authorization
-- test error handling and edge cases
-- run slowest but provide highest confidence
-
 ## When to Write Functional Tests
 
 - **complete user workflows**: registration → login → access protected resources
@@ -72,15 +63,4 @@
 ## Test Environment Setup
 
 **override dependencies**: database overrides for testing
-**environment variables**: testing=true, test secret keys
-**parallel execution**: `pytest -m functional -n auto`
-
-## Functional Test Checklist
-
-- [ ] makes real http requests to api
-- [ ] tests endpoint or complete user workflow
-- [ ] validates http status codes and headers
-- [ ] tests success and error scenarios
-- [ ] includes authentication/authorization
-- [ ] uses realistic test data
-- [ ] proper cleanup/isolation
+**override OS env**:  for settings: 

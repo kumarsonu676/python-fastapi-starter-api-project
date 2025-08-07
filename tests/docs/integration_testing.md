@@ -32,7 +32,7 @@
 ## Integration Testing Patterns
 
 ### if using a database
-- use real database (sqlite for speed) with proper cleanup
+- use real database (sqlite for speed, test postgres/mssql db if needed) with proper cleanup
 - create/destroy schema for each test session
 - use transactions for test isolation
 
@@ -42,45 +42,13 @@
 - verify service-repository interactions
 
 
-## Best Practices
-
-- **use real dependencies**: real database, not mocked repositories
-- **test data isolation**: unique data per test, dont use shared state
-- **test business logic, not implementation**: focus on behavior, not internal calls
-- **test error conditions**: duplicate keys, constraint violations, invalid data
-- **use meaningful assertions**: specific checks, not just "not none"
-
-## Common Pitfalls
-
-- **testing too little**: only happy path, missing error scenarios
-- **improper test isolation**: tests depending on each other
-- **slow tests**: creating excessive test data, not optimizing queries
-
 ## Running Integration Tests
 
 **all integration tests**: `pytest -m integration`
 **specific file**: `pytest tests/integration/test_repositories.py`
 **with database output**: `pytest -m integration -s --log-cli-level=DEBUG`
-**with coverage**: `pytest -m integration --cov=app --cov-report=html`
 
 ## Test Database Setup
 
-**sqlite for speed**: `sqlite+aiosqlite:///./test.db`
-**postgresql for production similarity**: `postgresql+asyncpg://test_user:test_pass@localhost/test_db`
-
-## Quality Metrics
-
-- **coverage**: >80% line coverage for business logic
-- **performance**: <30 seconds total, <1 second per test
-- **data quality**: realistic volumes, integrity constraints, concurrent access
-
-## Integration Test Checklist
-
-- [ ] uses real database or external service
-- [ ] tests multiple components working together
-- [ ] proper test data isolation
-- [ ] cleans up after itself
-- [ ] tests success and failure scenarios
-- [ ] verifies data persistence/changes
-- [ ] meaningful assertions
-- [ ] runs in reasonable time (<1 second) 
+**sqlite to file**: `sqlite+aiosqlite:///./test.db`
+also possible in //memory
